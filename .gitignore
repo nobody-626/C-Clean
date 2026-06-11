@@ -1,0 +1,25 @@
+# Claude Code 本地配置
+.claude/
+
+# 编译产物
+*.o
+*.obj
+*.exe
+*.out
+*.app
+build/
+bin/
+Debug/
+Release/
+x64/
+x86/
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+*.user
+*.suo
+
+# 系统文件
+Thumbs.db
+.DS_Store
