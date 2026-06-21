@@ -60,6 +60,35 @@ public static class Cleaner
         return new CleanResult(freed, count, errors);
     }
 
+    /// <summary>
+    /// 删除单个路径（空间分析页里用户选中某个方块后删除它）。
+    /// 与一键清理不同，这里删除的是路径本身（整个文件夹或文件）。
+    /// </summary>
+    public static (long freed, string? error) DeletePath(string path, bool recycle)
+    {
+        try
+        {
+            long size;
+            if (Directory.Exists(path))
+            {
+                size = FsUtil.DirSize(path, CancellationToken.None);
+                FileSystem.DeleteDirectory(path, UIOption.OnlyErrorDialogs,
+                    recycle ? RecycleOption.SendToRecycleBin : RecycleOption.DeletePermanently,
+                    UICancelOption.DoNothing);
+            }
+            else if (File.Exists(path))
+            {
+                size = new FileInfo(path).Length;
+                FileSystem.DeleteFile(path, UIOption.OnlyErrorDialogs,
+                    recycle ? RecycleOption.SendToRecycleBin : RecycleOption.DeletePermanently,
+                    UICancelOption.DoNothing);
+            }
+            else return (0, "路径不存在");
+            return (size, null);
+        }
+        catch (Exception ex) { return (0, ex.Message); }
+    }
+
     /// <summary>删除目录里的内容，但保留目录本身（如 %TEMP% 必须存在）。</summary>
     private static long DeleteDirectoryContents(string dir, bool recycle, CancellationToken ct,
         List<string> errors, ref int count)

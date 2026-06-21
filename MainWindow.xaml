@@ -209,8 +209,9 @@
                                 HorizontalAlignment="Left" Margin="0,16,0,0" Click="ScanButton_Click"/>
                     </StackPanel>
 
-                    <!-- 已选大小 -->
-                    <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                    <!-- 已选大小（仅"可清理项"页显示） -->
+                    <StackPanel x:Name="SelectedSizePanel" Grid.Column="2" VerticalAlignment="Center"
+                                HorizontalAlignment="Right" Visibility="Collapsed">
                         <TextBlock Text="已选可清理" Foreground="{StaticResource TextSecondary}" FontSize="12.5"
                                    HorizontalAlignment="Right"/>
                         <TextBlock x:Name="SelectedSizeText" Text="0 B" FontSize="30" FontWeight="Bold"
@@ -242,9 +243,58 @@
                         <TextBlock x:Name="HoverText" HorizontalAlignment="Right" VerticalAlignment="Center"
                                    Foreground="{StaticResource TextSecondary}" FontSize="12.5"/>
                     </Grid>
-                    <Border Grid.Row="1" CornerRadius="14" ClipToBounds="True" Background="#1A1D29">
-                        <ctl:TreemapControl x:Name="Treemap"/>
-                    </Border>
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="296"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" CornerRadius="14" ClipToBounds="True" Background="#1A1D29">
+                            <ctl:TreemapControl x:Name="Treemap"/>
+                        </Border>
+
+                        <!-- 详情 / 清理建议面板 -->
+                        <Border Grid.Column="1" Margin="16,0,0,0" CornerRadius="14"
+                                Background="{StaticResource CardBrush}" Padding="20,18">
+                            <Grid>
+                                <!-- 未选中时的提示 -->
+                                <StackPanel x:Name="InfoEmpty" VerticalAlignment="Center">
+                                    <TextBlock Text="🔍" FontSize="34" HorizontalAlignment="Center" Opacity="0.5"/>
+                                    <TextBlock Text="单击方块查看清理建议"
+                                               Foreground="{StaticResource TextSecondary}" FontSize="13.5"
+                                               HorizontalAlignment="Center" Margin="0,12,0,0" TextAlignment="Center"/>
+                                    <TextBlock Text="双击文件夹进入下一层"
+                                               Foreground="#5E667A" FontSize="12.5"
+                                               HorizontalAlignment="Center" Margin="0,6,0,0" TextAlignment="Center"/>
+                                </StackPanel>
+
+                                <!-- 选中后的详情 -->
+                                <StackPanel x:Name="InfoDetail" Visibility="Collapsed">
+                                    <TextBlock x:Name="InfoName" Foreground="{StaticResource TextPrimary}"
+                                               FontSize="16" FontWeight="Bold" TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="InfoPath" Foreground="#5E667A" FontSize="11.5"
+                                               TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                    <TextBlock x:Name="InfoSize" Foreground="#2EE6C0" FontSize="20"
+                                               FontWeight="Bold" Margin="0,12,0,0"/>
+
+                                    <Border x:Name="InfoBadge" CornerRadius="6" Padding="9,3" Margin="0,14,0,0"
+                                            HorizontalAlignment="Left">
+                                        <TextBlock x:Name="InfoBadgeText" FontSize="12" FontWeight="SemiBold"/>
+                                    </Border>
+
+                                    <TextBlock x:Name="InfoAdviceTitle" Foreground="{StaticResource TextPrimary}"
+                                               FontSize="13.5" FontWeight="SemiBold" Margin="0,14,0,0"/>
+                                    <TextBlock x:Name="InfoAdvice" Foreground="{StaticResource TextSecondary}"
+                                               FontSize="12.5" TextWrapping="Wrap" Margin="0,6,0,0" LineHeight="19"/>
+
+                                    <Button x:Name="InfoOpenBtn" Content="📂 打开目录" Style="{StaticResource GhostButton}"
+                                            HorizontalAlignment="Stretch" Margin="0,18,0,0" Click="InfoOpen_Click"/>
+                                    <Button x:Name="InfoDeleteBtn" Content="🗑 删除到回收站" Style="{StaticResource GhostButton}"
+                                            HorizontalAlignment="Stretch" Margin="0,10,0,0" Click="InfoDelete_Click"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
                 </Grid>
 
                 <!-- ===== 页面 2：可清理项 ===== -->

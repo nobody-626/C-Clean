@@ -31,6 +31,7 @@ public partial class MainWindow : Window
 
         Treemap.Activated += OnTreemapActivated;
         Treemap.Hovered += OnTreemapHovered;
+        Treemap.Selected += OnTreemapSelected;
 
         Loaded += OnLoaded;
     }
@@ -56,6 +57,7 @@ public partial class MainWindow : Window
         if (!IsLoaded) return;
         AnalysisPanel.Visibility = Visibility.Visible;
         CleanupPanel.Visibility = Visibility.Collapsed;
+        SelectedSizePanel.Visibility = Visibility.Collapsed;
     }
 
     private async void NavCleanup_Checked(object sender, RoutedEventArgs e)
@@ -63,6 +65,7 @@ public partial class MainWindow : Window
         if (!IsLoaded) return;
         CleanupPanel.Visibility = Visibility.Visible;
         AnalysisPanel.Visibility = Visibility.Collapsed;
+        SelectedSizePanel.Visibility = Visibility.Visible;
         if (_items.Count == 0 && !_busy) await RunCleanupScanAsync(); // 首次进入才扫
     }
 
@@ -93,6 +96,11 @@ public partial class MainWindow : Window
         AnalysisProgress.Visibility = Visibility.Visible;
         HoverText.Text = "正在分析…";
 
+        // 进入新一层，清空右侧详情面板
+        _selectedNode = null;
+        InfoEmpty.Visibility = Visibility.Visible;
+        InfoDetail.Visibility = Visibility.Collapsed;
+
         var progress = new Progress<string>(name => { if (!ct.IsCancellationRequested) HoverText.Text = $"正在统计：{name} …"; });
 
         try
@@ -103,7 +111,8 @@ public partial class MainWindow : Window
             Treemap.SetNodes(nodes);
             long total = 0;
             foreach (var n in nodes) total += n.SizeBytes;
-            _analysisSummary = $"{nodes.Count} 项 · 合计 {CleanupCategory.FormatBytes(total)}（单击文件夹下钻 / 单击文件定位）";
+            _currentLevelTotal = total;
+            _analysisSummary = $"{nodes.Count} 项 · 合计 {CleanupCategory.FormatBytes(total)}（单击查看建议 / 双击文件夹进入）";
             HoverText.Text = _analysisSummary;
         }
         catch (OperationCanceledException) { /* 被新的分析取代，忽略 */ }
@@ -123,8 +132,74 @@ public partial class MainWindow : Window
     private void OnTreemapHovered(DirNode? node)
     {
         HoverText.Text = node != null
-            ? $"{node.Name} — {node.SizeDisplay}{(node.IsDirectory ? "（单击进入）" : "")}"
+            ? $"{node.Name} — {node.SizeDisplay}"
             : _analysisSummary;
+    }
+
+    private DirNode? _selectedNode;       // 当前在详情面板里显示的节点
+    private long _currentLevelTotal;      // 当前层所有项的合计，用于算占比
+
+    /// <summary>单击某个方块：在右侧面板给出"这是什么 + 清理建议"。</summary>
+    private void OnTreemapSelected(DirNode node)
+    {
+        _selectedNode = node;
+        var advice = CleanAdvisor.For(node);
+
+        InfoEmpty.Visibility = Visibility.Collapsed;
+        InfoDetail.Visibility = Visibility.Visible;
+
+        InfoName.Text = (node.IsDirectory ? "📁 " : "📄 ") + node.Name;
+        InfoPath.Text = node.FullPath;
+
+        double pct = _currentLevelTotal > 0 ? node.SizeBytes * 100.0 / _currentLevelTotal : 0;
+        InfoSize.Text = $"{node.SizeDisplay} · 占当前层 {pct:0.#}%";
+
+        InfoBadge.Background = SafetyStyle.Background(advice.Level);
+        InfoBadgeText.Foreground = SafetyStyle.Foreground(advice.Level);
+        InfoBadgeText.Text = advice.Level switch
+        {
+            SafetyLevel.Safe => "🟢 可安全清理",
+            SafetyLevel.Caution => "🟡 谨慎清理",
+            _ => "🔴 不建议清理",
+        };
+
+        InfoAdviceTitle.Text = advice.Title;
+        InfoAdvice.Text = advice.Text;
+
+        InfoDeleteBtn.IsEnabled = advice.CanDelete;
+        InfoDeleteBtn.Content = advice.CanDelete ? "🗑 删除到回收站" : "🗑 不建议删除";
+    }
+
+    private void InfoOpen_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedNode != null) OpenPath(_selectedNode.FullPath);
+    }
+
+    private void InfoDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedNode == null) return;
+        var node = _selectedNode;
+
+        var confirm = MessageBox.Show(this,
+            $"将把以下{(node.IsDirectory ? "文件夹" : "文件")}删除到回收站（可从回收站恢复）：\n\n" +
+            $"{node.FullPath}\n\n大小约 {node.SizeDisplay}。确定继续吗？",
+            "确认删除", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.OK) return;
+
+        var (freed, error) = Cleaner.DeletePath(node.FullPath, recycle: true);
+        if (error != null)
+        {
+            MessageBox.Show(this, "删除失败：" + error, "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        HoverText.Text = $"已删除到回收站，释放 {CleanupCategory.FormatBytes(freed)}";
+        InfoEmpty.Visibility = Visibility.Visible;
+        InfoDetail.Visibility = Visibility.Collapsed;
+        _selectedNode = null;
+
+        SpaceAnalyzer.ClearCache();
+        _ = LoadTreemap(_currentDir); // 刷新当前层
     }
 
     private async void BackButton_Click(object sender, RoutedEventArgs e)

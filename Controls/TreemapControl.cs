@@ -17,15 +17,20 @@ public class TreemapControl : FrameworkElement
     private List<DirNode> _nodes = new();
     private readonly List<(DirNode node, Rect rect)> _layout = new();
     private DirNode? _hover;
+    private DirNode? _selected;
+    private double _total;
 
-    /// <summary>单击了某个节点（外部用它来下钻进文件夹）。</summary>
+    /// <summary>双击了某个节点（外部用它来下钻进文件夹 / 定位文件）。</summary>
     public event Action<DirNode>? Activated;
-    /// <summary>悬停的节点变化（外部用它显示"名称 — 大小"）。null 表示移出。</summary>
+    /// <summary>单击选中了某个节点（外部用它显示清理建议）。</summary>
+    public event Action<DirNode>? Selected;
+    /// <summary>悬停的节点变化。null 表示移出。</summary>
     public event Action<DirNode?>? Hovered;
 
     private static readonly Brush FileBrush = MakeFrozen(Color.FromRgb(0x55, 0x5E, 0x70));
     private static readonly Brush BorderPen = MakeFrozen(Color.FromRgb(0x14, 0x16, 0x1F));
     private static readonly Brush HoverPen = MakeFrozen(Color.FromRgb(0xFF, 0xFF, 0xFF));
+    private static readonly Brush SelectPen = MakeFrozen(Color.FromRgb(0x2E, 0xE6, 0xC0));
 
     private static Brush MakeFrozen(Color c)
     {
@@ -56,6 +61,8 @@ public class TreemapControl : FrameworkElement
     {
         _nodes = nodes ?? new();
         _hover = null;
+        _selected = null;
+        _total = _nodes.Sum(n => (double)n.SizeBytes);
         InvalidateVisual();
     }
 
@@ -99,10 +106,16 @@ public class TreemapControl : FrameworkElement
 
             dc.DrawRectangle(fill, border, rect);
 
-            // 悬停项加一圈亮边
-            if (ReferenceEquals(node, _hover))
+            // 选中项青色粗边；否则悬停项白色边
+            if (ReferenceEquals(node, _selected))
             {
-                var hp = new Pen(HoverPen, 2);
+                var sp = new Pen(SelectPen, 2.5);
+                sp.Freeze();
+                dc.DrawRectangle(null, sp, rect);
+            }
+            else if (ReferenceEquals(node, _hover))
+            {
+                var hp = new Pen(HoverPen, 1.5);
                 hp.Freeze();
                 dc.DrawRectangle(null, hp, rect);
             }
@@ -115,7 +128,8 @@ public class TreemapControl : FrameworkElement
 
     private void DrawLabel(DrawingContext dc, DirNode node, Rect rect, double dpi)
     {
-        string text = $"{node.Name}\n{node.SizeDisplay}";
+        string pct = _total > 0 ? $" · {node.SizeBytes / _total * 100:0.#}%" : "";
+        string text = $"{node.Name}\n{node.SizeDisplay}{pct}";
         var ft = new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
             new Typeface("Microsoft YaHei UI"), 12, Brushes.White, dpi)
         {
@@ -156,11 +170,22 @@ public class TreemapControl : FrameworkElement
         if (_hover != null) { _hover = null; Hovered?.Invoke(null); InvalidateVisual(); }
     }
 
-    protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
+    protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
-        base.OnMouseLeftButtonUp(e);
+        base.OnMouseLeftButtonDown(e);
         var hit = HitTest(e.GetPosition(this));
-        if (hit != null) Activated?.Invoke(hit);
+        if (hit == null) return;
+
+        if (e.ClickCount >= 2)
+        {
+            Activated?.Invoke(hit); // 双击：下钻 / 定位
+        }
+        else
+        {
+            _selected = hit;        // 单击：选中并给建议
+            InvalidateVisual();
+            Selected?.Invoke(hit);
+        }
     }
 
     private DirNode? HitTest(Point p)
