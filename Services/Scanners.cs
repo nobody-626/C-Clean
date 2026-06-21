@@ -112,31 +112,28 @@ public sealed class NvidiaScanner : IScanner
     {
         var results = new List<CleanupCategory>();
 
-        // 着色器缓存（DX / GL / OptiX）
-        var cachePaths = new[]
+        // 把"着色器缓存"和"日志/安装包缓存"合并成同一个大类，
+        // 让它和列表里其他项（系统缓存、微信缓存…）保持同一粒度，
+        // 避免单独拆出"着色器缓存"这种过细的小项、显得层级不齐。
+        var nvPaths = new[]
         {
+            // 着色器编译缓存（DX / GL / OptiX），删除后游戏首次运行会自动重建
             Path.Combine(Dirs.LocalAppData, "NVIDIA", "DXCache"),
             Path.Combine(Dirs.LocalAppData, "NVIDIA", "GLCache"),
             Path.Combine(Dirs.LocalAppData, "NVIDIA", "OptixCache"),
-        };
-        long cache = FsUtil.DirSize(cachePaths, ct);
-        if (cache > 0)
-            results.Add(Item.Make("🎮", "NVIDIA 着色器缓存",
-                "显卡着色器编译缓存（DXCache/GLCache），删除后游戏首次运行会重建",
-                SafetyLevel.Safe, cache, cachePaths));
-
-        // 安装包缓存 + 日志（你提到的"N 卡日志过大"主要在这）
-        var logPaths = new[]
-        {
+            // 驱动下载器残留、遥测与日志（"N 卡日志过大"主要在这）
             Path.Combine(Dirs.ProgramData, "NVIDIA Corporation", "Downloader"),
             Path.Combine(Dirs.ProgramData, "NVIDIA Corporation", "NvTelemetry"),
             Path.Combine(Dirs.LocalAppData, "NVIDIA Corporation", "NvNode"),
         };
-        long logs = FsUtil.DirSize(logPaths, ct);
-        if (logs > 0)
-            results.Add(Item.Make("📋", "NVIDIA 日志与安装包缓存",
-                "驱动下载器残留、遥测与日志文件，可安全清理",
-                SafetyLevel.Safe, logs, logPaths));
+
+        // 只保留真实存在且非空的目录，避免把空/不存在的路径塞进删除列表
+        var hitPaths = nvPaths.Where(p => FsUtil.DirSize(p, ct) > 0).ToList();
+        long total = FsUtil.DirSize(hitPaths, ct);
+        if (total > 0)
+            results.Add(Item.Make("🎮", "NVIDIA 显卡缓存与日志",
+                "显卡着色器编译缓存 + 驱动下载/日志残留，可安全清理（游戏首次运行会重建着色器）",
+                SafetyLevel.Safe, total, hitPaths));
 
         return results;
     }
