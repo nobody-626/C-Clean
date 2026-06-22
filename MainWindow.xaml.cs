@@ -373,6 +373,27 @@ public partial class MainWindow : Window
         catch (Exception ex) { MessageBox.Show(this, "打开目录失败：" + ex.Message, "错误"); }
     }
 
+    // ===================== 卸载软件：打开系统"程序和功能" =====================
+    private void Uninstall_Click(object sender, RoutedEventArgs e)
+    {
+        // 直接打开控制面板里的"程序和功能"（appwiz.cpl），在那里卸载最稳妥。
+        // （不再直接跑软件自带的卸载命令——各家命令格式不一，容易失败。）
+        string name = (sender as FrameworkElement)?.DataContext is CleanupCategory c ? c.Name : "";
+        try
+        {
+            Process.Start(new ProcessStartInfo("control.exe", "appwiz.cpl") { UseShellExecute = true });
+            StatusText.Text = string.IsNullOrEmpty(name)
+                ? "已打开“程序和功能”"
+                : $"已打开“程序和功能”，请在列表中找到「{name}」卸载";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this,
+                "打开“程序和功能”失败：" + ex.Message + "\n\n你可以手动打开：Win+R 输入 appwiz.cpl 回车。",
+                "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     // ===================== 磁盘容量仪表盘 =====================
     private void LoadDriveInfo()
     {

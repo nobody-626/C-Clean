@@ -383,11 +383,28 @@
                             <TextBlock Grid.Column="3" Text="{Binding SizeDisplay}" Foreground="{StaticResource TextPrimary}"
                                        FontSize="17" FontWeight="Bold" VerticalAlignment="Center" Margin="18,0,2,0"/>
 
-                            <!-- 打开目录，让用户自己手动删除 -->
-                            <Button Grid.Column="4" Content="📂 打开" Style="{StaticResource MiniButton}"
-                                    VerticalAlignment="Center" Margin="16,0,0,0"
-                                    ToolTip="在资源管理器中打开该目录，自行查看和删除"
-                                    Click="OpenFolder_Click"/>
+                            <!-- 右侧操作按钮：软件项额外有"卸载"，其余只有"打开" -->
+                            <StackPanel Grid.Column="4" Orientation="Horizontal"
+                                        VerticalAlignment="Center" Margin="12,0,0,0">
+                                <!-- 仅当抓到卸载命令（已安装软件）时显示，点了启动软件自带卸载程序 -->
+                                <Button Content="🗑 卸载" Margin="0,0,8,0"
+                                        ToolTip="启动该软件自带的卸载程序"
+                                        Click="Uninstall_Click">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource MiniButton}">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CanUninstall}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Content="📂 打开" Style="{StaticResource MiniButton}"
+                                        ToolTip="在资源管理器中打开该目录，自行查看和删除"
+                                        Click="OpenFolder_Click"/>
+                            </StackPanel>
                         </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>

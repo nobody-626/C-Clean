@@ -16,7 +16,7 @@ internal static class Item
 {
     public static CleanupCategory Make(string icon, string name, string desc,
         SafetyLevel safety, long size, IEnumerable<string>? paths = null, string note = "",
-        CleanAction action = CleanAction.DeleteContents)
+        CleanAction action = CleanAction.DeleteContents, string uninstall = "")
         => new()
         {
             Icon = icon,
@@ -28,6 +28,7 @@ internal static class Item
             Paths = paths?.ToList() ?? new(),
             Note = note,
             Action = action,
+            UninstallCommand = uninstall,
         };
 }
 
@@ -299,7 +300,7 @@ public sealed class InstalledSoftwareScanner : IScanner
 
     public IEnumerable<CleanupCategory> Scan(CancellationToken ct)
     {
-        var apps = new Dictionary<string, (long size, string date, string path)>();
+        var apps = new Dictionary<string, (long size, string date, string path, string uninstall)>();
 
         ReadUninstall(Registry.LocalMachine, @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", apps);
         ReadUninstall(Registry.LocalMachine, @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall", apps);
@@ -310,15 +311,17 @@ public sealed class InstalledSoftwareScanner : IScanner
             .OrderByDescending(kv => kv.Value.size)
             .Take(MaxItems)
             .Select(kv => Item.Make("📦", kv.Key,
-                "已安装的程序。卸载请用 Windows 设置里的应用管理，不要直接删文件夹",
+                "已安装的程序。点右侧「卸载」启动它自带的卸载程序，不要直接删文件夹",
                 SafetyLevel.Risky, kv.Value.size,
                 paths: string.IsNullOrEmpty(kv.Value.path) ? null : new[] { kv.Value.path },
                 note: string.IsNullOrEmpty(kv.Value.date) ? "" : $"安装于 {kv.Value.date}",
-                action: CleanAction.OpenOnly))
+                action: CleanAction.OpenOnly,
+                uninstall: kv.Value.uninstall))
             .ToList();
     }
 
-    private static void ReadUninstall(RegistryKey root, string sub, Dictionary<string, (long, string, string)> apps)
+    private static void ReadUninstall(RegistryKey root, string sub,
+        Dictionary<string, (long, string, string, string)> apps)
     {
         try
         {
@@ -338,10 +341,13 @@ public sealed class InstalledSoftwareScanner : IScanner
                 long size = sizeKb * 1024L;
                 string date = FormatDate(app.GetValue("InstallDate") as string);
                 string path = (app.GetValue("InstallLocation") as string ?? "").Trim('"');
+                // 卸载命令：用交互式的 UninstallString（点了会弹出该软件自己的卸载向导，
+                // 由用户在向导里确认），不用静默版，避免一点就无提示删掉。
+                string uninstall = (app.GetValue("UninstallString") as string ?? "").Trim();
 
                 // 同名取较大值，避免 32/64 位重复
                 if (!apps.TryGetValue(name, out var existing) || size > existing.Item1)
-                    apps[name] = (size, date, path);
+                    apps[name] = (size, date, path, uninstall);
             }
         }
         catch { /* 读注册表失败就忽略这一处 */ }

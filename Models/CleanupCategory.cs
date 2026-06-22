@@ -48,11 +48,17 @@ public class CleanupCategory : INotifyPropertyChanged
     /// <summary>补充信息，如软件的安装日期；为空则界面不显示。</summary>
     public string Note { get; set; } = "";
 
+    /// <summary>软件的卸载命令（注册表里的 UninstallString）；仅"已安装软件"项会有。</summary>
+    public string UninstallCommand { get; set; } = "";
+
     /// <summary>一键清理时对该项执行的动作。</summary>
     public CleanAction Action { get; set; } = CleanAction.DeleteContents;
 
     /// <summary>该项是否能被一键清理处理（🔴 聊天/程序只能手动）。</summary>
     public bool CanAutoClean => Action != CleanAction.OpenOnly;
+
+    /// <summary>是否显示"卸载"按钮：仅当抓到了卸载命令（即已安装软件）时。</summary>
+    public bool CanUninstall => !string.IsNullOrEmpty(UninstallCommand);
 
     /// <summary>用户是否勾选。默认只勾选"可安全清理"的项。</summary>
     public bool IsSelected
